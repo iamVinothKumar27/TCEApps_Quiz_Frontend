@@ -25,13 +25,23 @@ export const formatTime = (seconds) => {
 };
 
 export const calculateStudentResults = (currentQuiz, userAnswers) => {
-  if (!currentQuiz) return { correctAnswers: 0, wrongAnswers: 0, scorePercentage: 0, grade: 'F' };
+  if (!currentQuiz) {
+    return { correctAnswers: 0, wrongAnswers: 0, scorePercentage: 0, grade: 'F', scoreMarks: 0, totalMarks: 0 };
+  }
+
+  const totalQuestions = currentQuiz.questions.length;
   const correctAnswers = userAnswers.reduce((count, answer, index) => {
     return answer === currentQuiz.questions[index].correct ? count + 1 : count;
   }, 0);
-  const totalQuestions = currentQuiz.questions.length;
+
+  const totalMarks = (currentQuiz.questions || []).reduce((sum, q) => sum + (Number(q.marks) || 1), 0);
+  const scoreMarks = (currentQuiz.questions || []).reduce((sum, q, idx) => {
+    return userAnswers[idx] === q.correct ? sum + (Number(q.marks) || 1) : sum;
+  }, 0);
+
   const wrongAnswers = totalQuestions - correctAnswers;
-  const scorePercentage = Math.round((correctAnswers / totalQuestions) * 100);
+  const scorePercentage = totalMarks > 0 ? Math.round((scoreMarks / totalMarks) * 100) : 0;
+
   let grade;
   if (scorePercentage >= 90) grade = 'A+';
   else if (scorePercentage >= 80) grade = 'A';
@@ -39,7 +49,8 @@ export const calculateStudentResults = (currentQuiz, userAnswers) => {
   else if (scorePercentage >= 60) grade = 'C';
   else if (scorePercentage >= 50) grade = 'D';
   else grade = 'F';
-  return { correctAnswers, wrongAnswers, scorePercentage, grade };
+
+  return { correctAnswers, wrongAnswers, scorePercentage, grade, scoreMarks, totalMarks };
 };
 
 export const apiCall = async (endpoint, method = 'GET', data = null, API_BASE_URL, setLoading, setError) => {

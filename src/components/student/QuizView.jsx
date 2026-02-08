@@ -9,6 +9,8 @@ const QuizView = ({
   currentQuestion, 
   userAnswers, 
   timeLeft, 
+  questionTimeLeft,
+  lockedQuestions,
   selectOption, 
   nextQuestion, 
   previousQuestion, 
@@ -29,6 +31,7 @@ const QuizView = ({
   const [hoveredButton, setHoveredButton] = useState(null);
 
   const question = currentQuiz.questions[currentQuestion];
+  const isLocked = !!lockedQuestions?.[currentQuestion];
   const progress = ((currentQuestion + 1) / currentQuiz.questions.length) * 100;
 
   // Calculate answered questions (0-based index)
@@ -36,17 +39,26 @@ const QuizView = ({
     .map((ans, idx) => (ans !== null ? idx : null))
     .filter((v) => v !== null);
 
+  const qMarks = Number(question?.marks) || 1;
+  const qTime = Number(question?.timeSeconds) || 60;
+  const qTimeRemaining = Number(questionTimeLeft) || 0;
+
   return (
     <div style={styles.container}>
       <ToastContainer />
       {showWarning && <div style={styles.warningBanner}>{warningMessage}</div>}
       <div style={styles.card}>
-        {loggedInUser && (
-          <div style={styles.userInfoBanner}>
-            Logged in as: <span style={{ fontWeight: '600' }}>{loggedInUser.email}</span>
-          </div>
-        )}
-        <div style={styles.timer}>{formatTime(timeLeft)}</div>
+        <div style={styles.timer}>{formatTime(qTimeRemaining)}</div>
+        <div style={{
+          marginTop: '-6px',
+          textAlign: 'center',
+          color: 'rgba(255,255,255,0.85)',
+          fontWeight: 700,
+          fontSize: 12,
+          letterSpacing: 0.2,
+        }}>
+          Overall: {formatTime(timeLeft)}
+        </div>
         <div style={styles.progressBar}>
           <div style={styles.progressFill(progress)}></div>
         </div>
@@ -60,6 +72,30 @@ const QuizView = ({
           <h3 style={{ marginBottom: '15px', color: '#2d3748', fontSize: '20px' }}>
             Question {currentQuestion + 1} of {currentQuiz.questions.length}
           </h3>
+          <div style={{
+            marginTop: '-6px',
+            marginBottom: '14px',
+            display: 'flex',
+            gap: '12px',
+            flexWrap: 'wrap',
+            color: '#4a5568',
+            fontSize: '13px',
+            fontWeight: 700,
+          }}>
+            <span>Marks: {qMarks}</span>
+            <span>Time: {qTimeRemaining}s / {qTime}s</span>
+            {isLocked && (
+              <span style={{
+                padding: '4px 10px',
+                borderRadius: 999,
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                color: '#ef4444',
+              }}>
+                Time up (Locked)
+              </span>
+            )}
+          </div>
           {question.questionType === 'image' && question.imageUrl && (
             <div style={styles.imageContainer}>
               <img 
@@ -79,6 +115,22 @@ const QuizView = ({
             </p>
           )}
         </div>
+
+        {(isLocked || qTimeRemaining <= 0) && (
+          <div style={{
+            marginTop: '-4px',
+            marginBottom: '16px',
+            padding: '10px 12px',
+            borderRadius: 12,
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            color: 'rgba(255,255,255,0.92)',
+            fontWeight: 800,
+            textAlign: 'center'
+          }}>
+            Time is over for this question. You can continue to the next question.
+          </div>
+        )}
 
         {currentQuiz.hasAudio && (
           <div style={styles.audioPlayer}>
@@ -122,15 +174,20 @@ const QuizView = ({
           {Object.entries(question.options).map(([key, value], index) => {
             const displayNumber = (index + 1).toString();
             const isSelected = userAnswers[currentQuestion] === key.toUpperCase();
-            
+            const disabled = isLocked || qTimeRemaining <= 0;
+
             return (
               <div
                 key={key}
                 style={{
                   ...styles.option(isSelected),
-                  ...(hoveredOption === index && !isSelected ? styles.optionHover : {})
+                  ...(hoveredOption === index && !isSelected && !disabled ? styles.optionHover : {}),
+                  ...(disabled ? { opacity: 0.55, cursor: 'not-allowed' } : {})
                 }}
-                onClick={() => selectOption(index)}
+                onClick={() => {
+                  if (disabled) return;
+                  selectOption(index);
+                }}
                 onMouseEnter={() => setHoveredOption(index)}
                 onMouseLeave={() => setHoveredOption(null)}
               >
@@ -148,7 +205,7 @@ const QuizView = ({
               ...(hoveredButton === 'prev' && currentQuestion !== 0 ? styles.buttonHover : {})
             }}
             onClick={previousQuestion} 
-            disabled={currentQuestion === 0}
+            disabled={currentQuestion === 0 || !!lockedQuestions?.[currentQuestion - 1]}
             onMouseEnter={() => setHoveredButton('prev')}
             onMouseLeave={() => setHoveredButton(null)}
           >
@@ -174,6 +231,7 @@ const QuizView = ({
         answeredQuestions={answeredQuestions}
         currentQuestion={currentQuestion}
         onNavigate={setCurrentQuestion}
+        lockedQuestions={lockedQuestions}
       />
 
       {showPassageModal && selectedPassage && (

@@ -23,7 +23,9 @@ const ManageSessions = ({
   const [newQuestionData, setNewQuestionData] = useState({
     question: '',
     options: { a: '', b: '', c: '', d: '' },
-    correct: ''
+    correct: '',
+    marks: 1,
+    timeSeconds: 60
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState(null);
@@ -141,7 +143,9 @@ const ManageSessions = ({
     const newQuestion = {
       question: newQuestionData.question,
       options: { ...newQuestionData.options },
-      correct: newQuestionData.correct
+      correct: newQuestionData.correct,
+      marks: Number(newQuestionData.marks) || 1,
+      timeSeconds: Number(newQuestionData.timeSeconds) || 60
     };
 
     setEditSessionData({
@@ -152,7 +156,9 @@ const ManageSessions = ({
     setNewQuestionData({
       question: '',
       options: { a: '', b: '', c: '', d: '' },
-      correct: ''
+      correct: '',
+      marks: 1,
+      timeSeconds: 60
     });
 
     toast.success('Question added to session!');
@@ -305,6 +311,36 @@ const ManageSessions = ({
                           onBlur={() => setFocusedInput(null)}
                         />
                       </div>
+
+                      {/* Marks & Timer */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                        <input
+                          type="number"
+                          value={newQuestionData.marks}
+                          onChange={(e) => setNewQuestionData({ ...newQuestionData, marks: e.target.value })}
+                          placeholder="Marks"
+                          min={0}
+                          style={{
+                            ...s.input,
+                            ...(focusedInput === 'newMarks' ? s.inputFocus : {})
+                          }}
+                          onFocus={() => setFocusedInput('newMarks')}
+                          onBlur={() => setFocusedInput(null)}
+                        />
+                        <input
+                          type="number"
+                          value={newQuestionData.timeSeconds}
+                          onChange={(e) => setNewQuestionData({ ...newQuestionData, timeSeconds: e.target.value })}
+                          placeholder="Time (seconds)"
+                          min={1}
+                          style={{
+                            ...s.input,
+                            ...(focusedInput === 'newTime' ? s.inputFocus : {})
+                          }}
+                          onFocus={() => setFocusedInput('newTime')}
+                          onBlur={() => setFocusedInput(null)}
+                        />
+                      </div>
                       <select
                         value={newQuestionData.correct}
                         onChange={(e) => setNewQuestionData({ ...newQuestionData, correct: e.target.value })}
@@ -403,6 +439,38 @@ const ManageSessions = ({
                             }}>
                               <strong>D:</strong> {question.options.d}
                             </span>
+                          </div>
+
+                          {/* Edit marks & time */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
+                            <div>
+                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', marginBottom: '6px' }}>Marks</div>
+                              <input
+                                type="number"
+                                min={0}
+                                value={question.marks ?? 1}
+                                onChange={(e) => {
+                                  const newQuestions = [...editSessionData.questions];
+                                  newQuestions[index] = { ...newQuestions[index], marks: Number(e.target.value) };
+                                  setEditSessionData({ ...editSessionData, questions: newQuestions });
+                                }}
+                                style={s.input}
+                              />
+                            </div>
+                            <div>
+                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', marginBottom: '6px' }}>Time (s)</div>
+                              <input
+                                type="number"
+                                min={1}
+                                value={question.timeSeconds ?? 60}
+                                onChange={(e) => {
+                                  const newQuestions = [...editSessionData.questions];
+                                  newQuestions[index] = { ...newQuestions[index], timeSeconds: Number(e.target.value) };
+                                  setEditSessionData({ ...editSessionData, questions: newQuestions });
+                                }}
+                                style={s.input}
+                              />
+                            </div>
                           </div>
                           <div style={{ textAlign: 'center', marginTop: '10px' }}>
                             <span style={{

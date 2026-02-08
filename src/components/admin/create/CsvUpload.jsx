@@ -63,6 +63,8 @@ const CsvUpload = ({
                   <th style={s.tableHeaderCell}>C</th>
                   <th style={s.tableHeaderCell}>D</th>
                   <th style={s.tableHeaderCell}>Correct</th>
+                  <th style={s.tableHeaderCell}>Marks</th>
+                  <th style={s.tableHeaderCell}>Time (s)</th>
                 </tr>
               </thead>
               <tbody>
@@ -87,6 +89,8 @@ const CsvUpload = ({
                       fontWeight: 'bold',
                       color: '#4facfe'
                     }}>{q.correct}</td>
+                    <td style={s.tableCell}>{q.marks}</td>
+                    <td style={s.tableCell}>{q.timeSeconds}</td>
                   </tr>
                 ))}
               </tbody>

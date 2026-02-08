@@ -174,6 +174,36 @@ const QuestionsPreview = ({
                       onBlur={() => setFocusedInput(null)}
                     />
                   </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editQuestionData.marks}
+                      onChange={(e) => setEditQuestionData({ ...editQuestionData, marks: Number(e.target.value) })}
+                      placeholder="Marks"
+                      style={{
+                        ...s.input,
+                        ...(focusedInput === 'editMarks' ? s.inputFocus : {})
+                      }}
+                      onFocus={() => setFocusedInput('editMarks')}
+                      onBlur={() => setFocusedInput(null)}
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      value={editQuestionData.timeSeconds}
+                      onChange={(e) => setEditQuestionData({ ...editQuestionData, timeSeconds: Number(e.target.value) })}
+                      placeholder="Time (seconds)"
+                      style={{
+                        ...s.input,
+                        ...(focusedInput === 'editTimeSeconds' ? s.inputFocus : {})
+                      }}
+                      onFocus={() => setFocusedInput('editTimeSeconds')}
+                      onBlur={() => setFocusedInput(null)}
+                    />
+                  </div>
+
                   <select
                     value={editQuestionData.correct}
                     onChange={(e) => setEditQuestionData({ ...editQuestionData, correct: e.target.value })}
@@ -222,7 +252,12 @@ const QuestionsPreview = ({
                   <p style={s.questionText}>
                     <strong style={{ color: '#bb86fc' }}>Q:</strong> {question.question || '(Image-only question)'}
                   </p>
-                  {question.questionType === 'image' && question.imageUrl && (
+                  {/* Marks/Time */}
+              <div style={{ marginBottom: '10px', color: '#fff', opacity: 0.9, fontSize: '14px' }}>
+                ⏱️ {question.timeSeconds ?? 60}s  •  ⭐ {question.marks ?? 1} mark(s)
+              </div>
+
+              {question.questionType === 'image' && question.imageUrl && (
                     <div style={s.imagePreview}>
                       <img 
                         src={(() => {

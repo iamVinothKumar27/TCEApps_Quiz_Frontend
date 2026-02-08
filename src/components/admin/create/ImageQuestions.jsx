@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { createStyles } from './styles';
 
 const ImageQuestions = ({
+  questionMarks,
+  setQuestionMarks,
+  questionTimeSeconds,
+  setQuestionTimeSeconds,
   imageUrl,
   questionText,
   setQuestionText,
@@ -69,6 +73,37 @@ const ImageQuestions = ({
         onBlur={() => setFocusedInput(null)}
         disabled={loading}
       />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px' }}>
+        <input
+          type="number"
+          min="0"
+          value={questionMarks}
+          onChange={(e) => setQuestionMarks(Number(e.target.value))}
+          placeholder="Marks"
+          style={{
+            ...s.input,
+            ...(focusedInput === 'marks' ? s.inputFocus : {})
+          }}
+          onFocus={() => setFocusedInput('marks')}
+          onBlur={() => setFocusedInput(null)}
+          disabled={loading}
+        />
+        <input
+          type="number"
+          min="1"
+          value={questionTimeSeconds}
+          onChange={(e) => setQuestionTimeSeconds(Number(e.target.value))}
+          placeholder="Time (seconds)"
+          style={{
+            ...s.input,
+            ...(focusedInput === 'timeSeconds' ? s.inputFocus : {})
+          }}
+          onFocus={() => setFocusedInput('timeSeconds')}
+          onBlur={() => setFocusedInput(null)}
+          disabled={loading}
+        />
+      </div>
       
       <div style={s.grid}>
         <input

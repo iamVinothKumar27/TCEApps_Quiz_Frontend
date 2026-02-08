@@ -8,6 +8,7 @@ import QuizView from './QuizView';
 import ResultView from './ResultView';
 import WaitingForAdmin from './WaitingForAdmin';
 import { shuffleArray, apiCall, checkAndHandleViolation, openFullscreen, exitFullscreen } from './studentUtils';
+import AppLayout from '../common/AppLayout';
 
 const Student = () => {
   const LOCAL_STORAGE_KEY = 'quizInProgress';
@@ -20,6 +21,10 @@ const Student = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [userAnswers, setUserAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(90 * 60);
+  // Per-question timer (seconds remaining for each question)
+  const [questionTimeLefts, setQuestionTimeLefts] = useState([]);
+  // Once a question's timer reaches 0, it becomes locked (cannot be opened/answered)
+  const [lockedQuestions, setLockedQuestions] = useState([]);
   const [showWarning, setShowWarning] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [warningMessage, setWarningMessage] = useState('');
@@ -92,9 +97,21 @@ const Student = () => {
             quiz.audioUrl = `${API_BASE_URL}${quiz.audioFiles[0].path}`;
           }
 
-          setCurrentQuiz({ ...quiz, questions: finalQuestions });
-  setStudentView('form');
-  setUserAnswers(new Array(finalQuestions.length).fill(null));
+          // Compute total time for quiz based on per-question timeSeconds
+          const totalTimeSeconds = (finalQuestions || []).reduce(
+            (sum, q) => sum + (Number(q?.timeSeconds) || 60),
+            0
+          );
+
+          setCurrentQuiz({ ...quiz, questions: finalQuestions, timeLimit: totalTimeSeconds });
+          setStudentView('form');
+          setUserAnswers(new Array(finalQuestions.length).fill(null));
+          setTimeLeft(totalTimeSeconds);
+          setOriginalTimeAllotted(totalTimeSeconds);
+          // Init per-question timers
+          const qTimes = (finalQuestions || []).map((q) => Number(q?.timeSeconds) || 60);
+          setQuestionTimeLefts(qTimes);
+          setLockedQuestions(new Array(qTimes.length).fill(false));
         } else if (!quiz.isActive) {
           toast.info('This quiz is not currently active. Please contact your instructor.');
         } else {
@@ -125,12 +142,22 @@ const Student = () => {
     openFullscreen();
     setStudentView('quiz');
     setCurrentQuestion(0);
-    setTimeLeft(90 * 60);
+    // Use total quiz timer (sum of per-question times)
+    const totalTimeSeconds = (currentQuiz?.questions || []).reduce(
+      (sum, q) => sum + (Number(q?.timeSeconds) || 60),
+      0
+    );
+    setTimeLeft(totalTimeSeconds || (Number(currentQuiz?.questions?.[0]?.timeSeconds) || 60));
+    setOriginalTimeAllotted(totalTimeSeconds || (Number(currentQuiz?.questions?.[0]?.timeSeconds) || 60));
+    const qTimes = (currentQuiz?.questions || []).map((q) => Number(q?.timeSeconds) || 60);
+    setQuestionTimeLefts(qTimes);
+    setLockedQuestions(new Array(qTimes.length).fill(false));
     setTabSwitchCount(0);
   };
 
   // Updated selectOption function to handle number display but store letters
   const selectOption = (optionIndex) => {
+    if (lockedQuestions?.[currentQuestion]) return;
     const newAnswers = [...userAnswers];
     // Store as letters (A, B, C, D) for backend compatibility
     newAnswers[currentQuestion] = ['A', 'B', 'C', 'D'][optionIndex];
@@ -153,9 +180,17 @@ const Student = () => {
   };
 
   const previousQuestion = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion((prev) => prev - 1);
-    }
+    if (currentQuestion <= 0) return;
+    const target = currentQuestion - 1;
+    if (lockedQuestions?.[target]) return;
+    setCurrentQuestion(target);
+  };
+
+  const navigateToQuestion = (idx) => {
+    if (idx < 0) return;
+    if (lockedQuestions?.[idx]) return;
+    if (!currentQuiz?.questions || idx >= currentQuiz.questions.length) return;
+    setCurrentQuestion(idx);
   };
 
   const submitQuiz = useCallback(
@@ -171,9 +206,6 @@ const Student = () => {
             return;
           }
         }
-        const correctAnswers = userAnswers.reduce((count, answer, index) => {
-          return answer === currentQuiz.questions[index].correct ? count + 1 : count;
-        }, 0);
         if (isAutoSubmit && violationType) {
           const violationData = {
             sessionId: currentQuiz.sessionId,
@@ -201,12 +233,10 @@ const Student = () => {
             department: studentInfo.department,
             section: studentInfo.section,
             answers: userAnswers,
-            score: correctAnswers,
-            totalQuestions: currentQuiz.questions.length,
-            percentage: Math.round((correctAnswers / currentQuiz.questions.length) * 100),
             isAutoSubmit,
+            violationType: violationType || null,
             isResumed: isResuming,
-            timeSpent: originalTimeAllotted - timeLeft,
+            timeSpent: timeSpent,
           };
           await handleApiCall('/api/quiz-results', 'POST', resultData);
           exitFullscreen();
@@ -217,7 +247,7 @@ const Student = () => {
         toast.error('Failed to submit quiz: ' + error.message);
       }
     },
-    [userAnswers, currentQuiz, studentInfo, currentQuestion, timeLeft, tabSwitchCount, isResuming, originalTimeAllotted]
+    [userAnswers, currentQuiz, studentInfo, currentQuestion, timeLeft, tabSwitchCount, isResuming, originalTimeAllotted, timeSpent]
   );
 
   const restartStudent = () => {
@@ -451,8 +481,12 @@ const Student = () => {
         setStudentInfo(response.studentInfo);
         setCurrentQuestion(0);
         setUserAnswers(new Array(response.quizData.questions.length).fill(null));
-        setTimeLeft(response.quizData.timeLimit || 90 * 60);
-        setOriginalTimeAllotted(response.quizData.timeLimit || 90 * 60);
+        const resumedTotalTime = Number(response.quizData.timeLimit) || (response.quizData.questions || []).reduce(
+          (sum, q) => sum + (Number(q?.timeSeconds) || 60),
+          0
+        ) || 60;
+        setTimeLeft(resumedTotalTime);
+        setOriginalTimeAllotted(resumedTotalTime);
         setTabSwitchCount(0);
         setIsResuming(true);
          openFullscreen();
@@ -487,21 +521,55 @@ const Student = () => {
   // All useEffect hooks remain the same...
   useEffect(() => {
     let timerInterval;
-    if (studentView === 'quiz' && timeLeft > 0) {
+    if (studentView === 'quiz') {
       timerInterval = setInterval(() => {
+        // Overall quiz timer
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            submitQuiz();
+            submitQuiz(true, 'time_expired');
             return 0;
           }
           return prev - 1;
+        });
+
+        // Per-question timer (only counts while the question is open)
+        setQuestionTimeLefts((prevArr) => {
+          if (!prevArr || prevArr.length === 0) return prevArr;
+          const nextArr = [...prevArr];
+          const idx = currentQuestion;
+          if (idx < 0 || idx >= nextArr.length) return prevArr;
+          // Don't tick if already locked
+          if (lockedQuestions?.[idx]) return prevArr;
+          const cur = Number(nextArr[idx]) || 0;
+          if (cur <= 1) {
+            nextArr[idx] = 0;
+            // Lock the question and move ahead
+            setLockedQuestions((prevLocked) => {
+              const nextLocked = Array.isArray(prevLocked) ? [...prevLocked] : new Array(nextArr.length).fill(false);
+              nextLocked[idx] = true;
+              return nextLocked;
+            });
+            // Auto-advance to next available question (if any)
+            setCurrentQuestion((prevQ) => {
+              if (!currentQuiz?.questions) return prevQ;
+              let nextIndex = prevQ + 1;
+              while (nextIndex < currentQuiz.questions.length && (lockedQuestions?.[nextIndex])) {
+                nextIndex += 1;
+              }
+              if (nextIndex >= currentQuiz.questions.length) return prevQ;
+              return nextIndex;
+            });
+            return nextArr;
+          }
+          nextArr[idx] = cur - 1;
+          return nextArr;
         });
       }, 1000);
     }
     return () => {
       if (timerInterval) clearInterval(timerInterval);
     };
-  }, [studentView, timeLeft, submitQuiz]);
+  }, [studentView, currentQuestion, lockedQuestions, currentQuiz, submitQuiz]);
   
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -533,7 +601,14 @@ const Student = () => {
               setUserAnswers(data.userAnswers);
               setTimeLeft(data.timeLeft);
               setCurrentQuestion(data.currentQuestion);
-              setOriginalTimeAllotted(data.originalTimeAllotted || 90 * 60);
+              setOriginalTimeAllotted(
+                data.originalTimeAllotted ||
+                  (data.quizData?.questions || []).reduce(
+                    (sum, q) => sum + (Number(q?.timeSeconds) || 60),
+                    0
+                  ) ||
+                  60
+              );
               setIsResuming(data.isResuming || false);
               setStudentView('quiz');
               toast.success('Resumed quiz from last saved state!');
@@ -698,77 +773,89 @@ const Student = () => {
   // Render views based on studentView state
   if (studentView === 'codeEntry') {
     return (
-      <CodeEntry
-        loading={loading}
-        error={error}
-        quizCode={quizCode}
-        setQuizCode={setQuizCode}
-        handleJoinQuiz={handleJoinQuiz}
-        loggedInUser={loggedInUser}
-      />
+      <AppLayout title="Student Portal">
+        <CodeEntry
+          loading={loading}
+          error={error}
+          quizCode={quizCode}
+          setQuizCode={setQuizCode}
+          handleJoinQuiz={handleJoinQuiz}
+          loggedInUser={loggedInUser}
+        />
+      </AppLayout>
     );
   }
 
   if (studentView === 'form') {
     return (
-      <StudentForm
-        loading={loading}
-        error={error}
-        currentQuiz={currentQuiz}
-        studentInfo={studentInfo}
-        setStudentInfo={setStudentInfo}
-        startStudentQuiz={startStudentQuiz}
-        setStudentView={setStudentView}
-        loggedInUser={loggedInUser}
-      />
+      <AppLayout title="Student Portal" showBack>
+        <StudentForm
+          loading={loading}
+          error={error}
+          currentQuiz={currentQuiz}
+          studentInfo={studentInfo}
+          setStudentInfo={setStudentInfo}
+          startStudentQuiz={startStudentQuiz}
+          setStudentView={setStudentView}
+          loggedInUser={loggedInUser}
+        />
+      </AppLayout>
     );
   }
 
   if (studentView === 'quiz') {
     return (
-      <QuizView
-        currentQuiz={currentQuiz}
-        currentQuestion={currentQuestion}
-        userAnswers={userAnswers}
-        timeLeft={timeLeft}
-        selectOption={selectOption}
-        nextQuestion={nextQuestion}
-        previousQuestion={previousQuestion}
-        showWarning={showWarning}
-        warningMessage={warningMessage}
-        loggedInUser={loggedInUser}
-        API_BASE_URL={API_BASE_URL}
-        selectedPassage={selectedPassage}
-        setSelectedPassage={setSelectedPassage}
-        showPassageModal={showPassageModal}
-        setShowPassageModal={setShowPassageModal}
-        audioRef={audioRef}
-        isAudioPlaying={isAudioPlaying}
-        setIsAudioPlaying={setIsAudioPlaying}
-        setCurrentQuestion={setCurrentQuestion}
-      />
+      <AppLayout title={currentQuiz?.name || 'Quiz'}>
+        <QuizView
+          currentQuiz={currentQuiz}
+          currentQuestion={currentQuestion}
+          userAnswers={userAnswers}
+          timeLeft={timeLeft}
+          questionTimeLeft={questionTimeLefts?.[currentQuestion] ?? (Number(currentQuiz?.questions?.[currentQuestion]?.timeSeconds) || 60)}
+          lockedQuestions={lockedQuestions}
+          selectOption={selectOption}
+          nextQuestion={nextQuestion}
+          previousQuestion={previousQuestion}
+          showWarning={showWarning}
+          warningMessage={warningMessage}
+          loggedInUser={loggedInUser}
+          API_BASE_URL={API_BASE_URL}
+          selectedPassage={selectedPassage}
+          setSelectedPassage={setSelectedPassage}
+          showPassageModal={showPassageModal}
+          setShowPassageModal={setShowPassageModal}
+          audioRef={audioRef}
+          isAudioPlaying={isAudioPlaying}
+          setIsAudioPlaying={setIsAudioPlaying}
+          setCurrentQuestion={navigateToQuestion}
+        />
+      </AppLayout>
     );
   }
 
   if (studentView === 'result') {
     return (
-      <ResultView
-        currentQuiz={currentQuiz}
-        userAnswers={userAnswers}
-        studentInfo={studentInfo}
-        loggedInUser={loggedInUser}
-      />
+      <AppLayout title="Quiz Result" showBack>
+        <ResultView
+          currentQuiz={currentQuiz}
+          userAnswers={userAnswers}
+          studentInfo={studentInfo}
+          loggedInUser={loggedInUser}
+        />
+      </AppLayout>
     );
   }
 
   if (studentView === 'waitingForAdmin') {
     return (
-      <WaitingForAdmin
-        loading={loading}
-        suspensionMessage={suspensionMessage}
-        handleResumeQuiz={handleResumeQuiz}
-        loggedInUser={loggedInUser}
-      />
+      <AppLayout title="Waiting for Admin" showBack>
+        <WaitingForAdmin
+          loading={loading}
+          suspensionMessage={suspensionMessage}
+          handleResumeQuiz={handleResumeQuiz}
+          loggedInUser={loggedInUser}
+        />
+      </AppLayout>
     );
   }
 

@@ -27,6 +27,8 @@ const CreateQuiz = ({
   const [optionC, setOptionC] = useState('');
   const [optionD, setOptionD] = useState('');
   const [correctOption, setCorrectOption] = useState('');
+  const [questionMarks, setQuestionMarks] = useState(1);
+  const [questionTimeSeconds, setQuestionTimeSeconds] = useState(60);
   const [csvFile, setCsvFile] = useState(null);
   const [csvErrors, setCsvErrors] = useState([]);
   const [csvPreview, setCsvPreview] = useState([]);
@@ -42,7 +44,9 @@ const CreateQuiz = ({
   const [editQuestionData, setEditQuestionData] = useState({
     question: '',
     options: { a: '', b: '', c: '', d: '' },
-    correct: ''
+    correct: '',
+    marks: 1,
+    timeSeconds: 60
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState(null);
@@ -71,6 +75,8 @@ const CreateQuiz = ({
           question: questionText,
           options: { a: optionA, b: optionB, c: optionC, d: optionD },
           correct: correctOption,
+          marks: questionMarks,
+          timeSeconds: questionTimeSeconds,
         };
         await apiCall(`/api/quiz-sessions/${currentSessionId}/questions`, 'POST', questionData);
         setQuestionText('');
@@ -79,6 +85,8 @@ const CreateQuiz = ({
         setOptionC('');
         setOptionD('');
         setCorrectOption('');
+        setQuestionMarks(1);
+        setQuestionTimeSeconds(60);
         await loadQuizSessions();
         toast.success('Question added successfully!');
         setShowQuestionsPreview(true);
@@ -122,6 +130,8 @@ const CreateQuiz = ({
                 d: row['Option D']?.toString().trim(),
               },
               correct: correctAnswer,
+              marks: row['Marks'] ?? row['Mark'] ?? row['marks'] ?? 1,
+              timeSeconds: row['Time (Seconds)'] ?? row['Time'] ?? row['time'] ?? 60,
               rowIndex: index + 2,
             };
           });
@@ -135,6 +145,10 @@ const CreateQuiz = ({
             if (!['A', 'B', 'C', 'D'].includes(q.correct)) {
               validationErrors.push(`Row ${q.rowIndex}: Correct answer must be A, B, C, or D (found: ${q.correct})`);
             }
+            const mVal = Number(q.marks);
+            const tVal = Number(q.timeSeconds);
+            if (Number.isNaN(mVal) || mVal < 0) validationErrors.push(`Row ${q.rowIndex}: Marks must be a number >= 0`);
+            if (Number.isNaN(tVal) || tVal < 1) validationErrors.push(`Row ${q.rowIndex}: Time (Seconds) must be a number >= 1`);
           });
           if (validationErrors.length > 0) {
             setCsvErrors(validationErrors);
@@ -307,7 +321,9 @@ const CreateQuiz = ({
     setEditQuestionData({
       question: question.question,
       options: { ...question.options },
-      correct: question.correct
+      correct: question.correct,
+      marks: question.marks ?? 1,
+      timeSeconds: question.timeSeconds ?? 60
     });
   };
 
@@ -333,7 +349,7 @@ const CreateQuiz = ({
 
       await loadQuizSessions();
       setEditingQuestion(null);
-      setEditQuestionData({ question: '', options: { a: '', b: '', c: '', d: '' }, correct: '' });
+      setEditQuestionData({ question: '', options: { a: '', b: '', c: '', d: '' }, correct: '', marks: 1, timeSeconds: 60 });
       toast.success('Question updated successfully!');
     } catch (error) {
       toast.error('Failed to update question: ' + error.message);
@@ -584,6 +600,10 @@ const CreateQuiz = ({
         {/* Entry Method Components */}
         {entryMethod === 'manual' && (
           <ManualEntry
+            questionMarks={questionMarks}
+            setQuestionMarks={setQuestionMarks}
+            questionTimeSeconds={questionTimeSeconds}
+            setQuestionTimeSeconds={setQuestionTimeSeconds}
             questionText={questionText}
             setQuestionText={setQuestionText}
             optionA={optionA}
@@ -604,6 +624,10 @@ const CreateQuiz = ({
 
         {entryMethod === 'image' && (
           <ImageQuestions
+            questionMarks={questionMarks}
+            setQuestionMarks={setQuestionMarks}
+            questionTimeSeconds={questionTimeSeconds}
+            setQuestionTimeSeconds={setQuestionTimeSeconds}
             imageUrl={imageUrl}
             questionText={questionText}
             setQuestionText={setQuestionText}

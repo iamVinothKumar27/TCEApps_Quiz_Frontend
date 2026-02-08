@@ -256,7 +256,7 @@ const ViewResults = ({
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={s.resultScore}>
-                          Score: {result.score}/{result.totalQuestions}
+                          Score: {result.score}/{result.totalMarks ?? result.totalQuestions}
                         </div>
                         <div style={{ marginTop: '8px' }}>
                           <span style={s.gradeBadge(isPass)}>

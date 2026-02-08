@@ -396,6 +396,10 @@ const Auth = () => {
 
       {/* Inject CSS Animations */}
       <style>{authAnimations}</style>
+
+      {/* Global Footer (same across pages) */}
+      
+      
     </div>
   );
 };

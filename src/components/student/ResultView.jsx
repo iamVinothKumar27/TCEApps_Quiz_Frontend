@@ -107,12 +107,6 @@ const ResultView = ({ currentQuiz, userAnswers, studentInfo, loggedInUser }) => 
       )}
 
       <div style={styles.card}>
-        {loggedInUser && (
-          <div style={styles.userInfoBanner}>
-            Logged in as: <span style={{ fontWeight: '600' }}>{loggedInUser.email}</span>
-          </div>
-        )}
-        
         <div style={styles.resultCard}>
           <div style={{ fontSize: '48px', marginBottom: '10px' }}>🎉</div>
           <h2 style={{ 
@@ -150,47 +144,6 @@ const ResultView = ({ currentQuiz, userAnswers, studentInfo, loggedInUser }) => 
           </div>
         </div>
       </div>
-
-      {/* Footer Section */}
-      <div style={styles.footerBlack}>
-        <div style={styles.footerOverlay}></div>
-        <div style={styles.footerShape1}></div>
-        <div style={styles.footerShape2}></div>
-        <div style={styles.footerShape3}></div>
-        
-        <div style={styles.footerThreeColumns}>
-          <div style={styles.footerLeftColumn}>
-            <div style={{ ...styles.footerHeading, position: 'relative' }}>
-              Developed By
-              <div style={styles.footerHeadingUnderline}></div>
-            </div>
-            {['ROSHINI M - IT', 'MATHIVATHANI E - IT', 'SHANMATHI N - IT', 'HARINI R - IT', 'SANCHANA R - IT'].map((name, idx) => (
-              <div key={idx} style={styles.developerName}>
-                <div style={styles.developerNameShimmer}></div>
-                {name}
-              </div>
-            ))}
-          </div>
-
-          <div style={styles.footerCenterColumn}>
-            <div style={{ ...styles.footerHeading, position: 'relative' }}>
-              HEAD OF THE DEPARTMENT
-              <div style={{ ...styles.footerHeadingUnderline, left: '50%', transform: 'translateX(-50%)' }}></div>
-            </div>
-            <div style={styles.departmentHead}>Dr. C. DEISY</div>
-          </div>
-
-          <div style={styles.footerRightColumn}>
-            <div style={{ ...styles.footerHeading, position: 'relative' }}>
-              Under the guidance of
-              <div style={{ ...styles.footerHeadingUnderline, left: 'auto', right: 0 }}></div>
-            </div>
-            <div style={styles.guidanceInfo}>Department of Information Technology</div>
-            <div style={styles.guidanceInfo}>C.V. NISHA ANGELINE</div>
-          </div>
-        </div>
-      </div>
-
       {/* Inject CSS Animations */}
       <style>{resultViewAnimations}</style>
     </div>
